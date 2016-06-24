@@ -43,6 +43,7 @@ type PushDataPacket struct {
 	RandomToken uint16
 	GatewayMAC  lorawan.EUI64
 	Payload     PushDataPayload
+	ProtoVer    uint8
 }
 
 // MarshalBinary marshals the object in binary form.
@@ -53,7 +54,10 @@ func (p PushDataPacket) MarshalBinary() ([]byte, error) {
 	}
 
 	out := make([]byte, 4, len(pb)+12)
-	out[0] = ProtocolVersion2
+	// Reply with the protcol version of the Gateway's
+	// packet forwarder.
+	out[0] = p.ProtoVer
+	//out[0] = ProtocolVersion2
 	binary.LittleEndian.PutUint16(out[1:3], p.RandomToken)
 	out[3] = byte(PushData)
 	out = append(out, p.GatewayMAC[0:len(p.GatewayMAC)]...)
@@ -69,10 +73,13 @@ func (p *PushDataPacket) UnmarshalBinary(data []byte) error {
 	if data[3] != byte(PushData) {
 		return errors.New("gateway: identifier mismatch (PUSH_DATA expected)")
 	}
-	if data[0] != ProtocolVersion2 {
+	if data[0] == ProtocolVersion2 {
+		p.ProtoVer = ProtocolVersion2
+	} else if data[0] == ProtocolVersion1 {
+		p.ProtoVer = ProtocolVersion1
+	} else {
 		return ErrInvalidProtocolVersion
 	}
-
 	p.RandomToken = binary.LittleEndian.Uint16(data[1:3])
 	for i := 0; i < 8; i++ {
 		p.GatewayMAC[i] = data[4+i]
@@ -88,9 +95,12 @@ type PushACKPacket struct {
 }
 
 // MarshalBinary marshals the object in binary form.
-func (p PushACKPacket) MarshalBinary() ([]byte, error) {
+func (p PushACKPacket) MarshalBinary(protoVer uint8) ([]byte, error) {
 	out := make([]byte, 4)
-	out[0] = ProtocolVersion2
+	// Reply with the protcol version of the Gateway's
+	// packet forwarder.
+	out[0] = protoVer
+	//out[0] = ProtocolVersion2
 	binary.LittleEndian.PutUint16(out[1:3], p.RandomToken)
 	out[3] = byte(PushACK)
 	return out, nil
@@ -104,9 +114,15 @@ func (p *PushACKPacket) UnmarshalBinary(data []byte) error {
 	if data[3] != byte(PushACK) {
 		return errors.New("gateway: identifier mismatch (PUSH_ACK expected)")
 	}
-	if data[0] != ProtocolVersion2 {
-		return ErrInvalidProtocolVersion
-	}
+	/*
+		if data[0] == ProtocolVersion2 {
+			p.ProtoVer = ProtocolVersion2
+		} else if data[0] == ProtocolVersion1 {
+			p.ProtoVer = ProtocolVersion1
+		} else {
+			return ErrInvalidProtocolVersion
+		}
+	*/
 	p.RandomToken = binary.LittleEndian.Uint16(data[1:3])
 	return nil
 }
@@ -115,12 +131,16 @@ func (p *PushACKPacket) UnmarshalBinary(data []byte) error {
 type PullDataPacket struct {
 	RandomToken uint16
 	GatewayMAC  [8]byte
+	ProtoVer    uint8
 }
 
 // MarshalBinary marshals the object in binary form.
 func (p PullDataPacket) MarshalBinary() ([]byte, error) {
 	out := make([]byte, 4, 12)
-	out[0] = ProtocolVersion2
+	// Reply with the protcol version of the Gateway's
+	// packet forwarder.
+	out[0] = p.ProtoVer
+	//out[0] = ProtocolVersion2
 	binary.LittleEndian.PutUint16(out[1:3], p.RandomToken)
 	out[3] = byte(PullData)
 	out = append(out, p.GatewayMAC[0:len(p.GatewayMAC)]...)
@@ -135,7 +155,11 @@ func (p *PullDataPacket) UnmarshalBinary(data []byte) error {
 	if data[3] != byte(PullData) {
 		return errors.New("gateway: identifier mismatch (PULL_DATA expected)")
 	}
-	if data[0] != ProtocolVersion2 {
+	if data[0] == ProtocolVersion2 {
+		p.ProtoVer = ProtocolVersion2
+	} else if data[0] == ProtocolVersion1 {
+		p.ProtoVer = ProtocolVersion1
+	} else {
 		return ErrInvalidProtocolVersion
 	}
 	p.RandomToken = binary.LittleEndian.Uint16(data[1:3])
@@ -152,9 +176,12 @@ type PullACKPacket struct {
 }
 
 // MarshalBinary marshals the object in binary form.
-func (p PullACKPacket) MarshalBinary() ([]byte, error) {
+func (p PullACKPacket) MarshalBinary(protoVer uint8) ([]byte, error) {
 	out := make([]byte, 4)
-	out[0] = ProtocolVersion2
+	// Reply with the protcol version of the Gateway's
+	// packet forwarder.
+	out[0] = protoVer
+	//out[0] = ProtocolVersion2
 	binary.LittleEndian.PutUint16(out[1:3], p.RandomToken)
 	out[3] = byte(PullACK)
 	return out, nil
@@ -168,9 +195,15 @@ func (p *PullACKPacket) UnmarshalBinary(data []byte) error {
 	if data[3] != byte(PullACK) {
 		return errors.New("gateway: identifier mismatch (PULL_ACK expected)")
 	}
-	if data[0] != ProtocolVersion2 {
-		return ErrInvalidProtocolVersion
-	}
+	/*
+		if data[0] == ProtocolVersion2 {
+			p.ProtoVer = ProtocolVersion2
+		} else if data[0] == ProtocolVersion1 {
+			p.ProtoVer = ProtocolVersion1
+		} else {
+			return ErrInvalidProtocolVersion
+		}
+	*/
 	p.RandomToken = binary.LittleEndian.Uint16(data[1:3])
 	return nil
 }
@@ -183,13 +216,16 @@ type PullRespPacket struct {
 }
 
 // MarshalBinary marshals the object in binary form.
-func (p PullRespPacket) MarshalBinary() ([]byte, error) {
+func (p PullRespPacket) MarshalBinary(protoVer uint8) ([]byte, error) {
 	pb, err := json.Marshal(&p.Payload)
 	if err != nil {
 		return nil, err
 	}
 	out := make([]byte, 4, 4+len(pb))
-	out[0] = ProtocolVersion2
+	// Reply with the protcol version of the Gateway's
+	// packet forwarder.
+	out[0] = protoVer
+	//out[0] = ProtocolVersion2
 	binary.LittleEndian.PutUint16(out[1:3], p.RandomToken)
 	out[3] = byte(PullResp)
 	out = append(out, pb...)
@@ -204,9 +240,15 @@ func (p *PullRespPacket) UnmarshalBinary(data []byte) error {
 	if data[3] != byte(PullResp) {
 		return errors.New("gateway: identifier mismatch (PULL_RESP expected)")
 	}
-	if data[0] != ProtocolVersion2 {
-		return ErrInvalidProtocolVersion
-	}
+	/*
+		if data[0] == ProtocolVersion2 {
+			p.ProtoVer = ProtocolVersion2
+		} else if data[0] == ProtocolVersion1 {
+			p.ProtoVer = ProtocolVersion1
+		} else {
+			return ErrInvalidProtocolVersion
+		}
+	*/
 	p.RandomToken = binary.LittleEndian.Uint16(data[1:3])
 	return json.Unmarshal(data[4:], &p.Payload)
 }
@@ -218,6 +260,7 @@ type TXACKPacket struct {
 	RandomToken uint16
 	GatewayMAC  lorawan.EUI64
 	Payload     *TXACKPayload
+	ProtoVer    uint8
 }
 
 // MarshalBinary marshals the object into binary form.
@@ -232,7 +275,10 @@ func (p TXACKPacket) MarshalBinary() ([]byte, error) {
 	}
 
 	out := make([]byte, 4, len(pb)+12)
-	out[0] = ProtocolVersion2
+	// Reply with the protcol version of the Gateway's
+	// packet forwarder.
+	out[0] = p.ProtoVer
+	//out[0] = ProtocolVersion2
 	binary.LittleEndian.PutUint16(out[1:3], p.RandomToken)
 	out[3] = byte(TXACK)
 	out = append(out, p.GatewayMAC[:]...)
@@ -248,7 +294,11 @@ func (p *TXACKPacket) UnmarshalBinary(data []byte) error {
 	if data[3] != byte(TXACK) {
 		return errors.New("gateway: identifier mismatch (TXACK expected)")
 	}
-	if data[0] != ProtocolVersion2 {
+	if data[0] == ProtocolVersion2 {
+		p.ProtoVer = ProtocolVersion2
+	} else if data[0] == ProtocolVersion1 {
+		p.ProtoVer = ProtocolVersion1
+	} else {
 		return ErrInvalidProtocolVersion
 	}
 	p.RandomToken = binary.LittleEndian.Uint16(data[1:3])
@@ -402,10 +452,18 @@ func GetPacketType(data []byte) (PacketType, error) {
 	if len(data) < 4 {
 		return PacketType(0), errors.New("gateway: at least 4 bytes of data are expected")
 	}
+	/*
+		if data[0] != ProtocolVersion2 {
+			return PacketType(0), ErrInvalidProtocolVersion
+		}
 
-	if data[0] != ProtocolVersion2 {
-		return PacketType(0), ErrInvalidProtocolVersion
-	}
-
+		if data[0] == ProtocolVersion2 {
+			p.ProtoVer = ProtocolVersion2
+		} else if data[0] == ProtocolVersion1 {
+			p.ProtoVer = ProtocolVersion1
+		} else {
+			return ErrInvalidProtocolVersion
+		}
+	*/
 	return PacketType(data[3]), nil
 }
