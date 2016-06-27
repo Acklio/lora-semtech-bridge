@@ -27,9 +27,9 @@ type udpPacket struct {
 }
 
 type gateway struct {
-	addr     *net.UDPAddr
-	lastSeen time.Time
-	protoVer uint8
+	addr            *net.UDPAddr
+	lastSeen        time.Time
+	protocolVersion uint8
 }
 
 type gateways struct {
@@ -180,9 +180,9 @@ func (b *Backend) Send(txPacket models.TXPacket) error {
 		Payload: PullRespPayload{
 			TXPK: txpk,
 		},
+		protocolVersion: gw.protocolVersion,
 	}
-	protocolVersion := gw.protoVer
-	bytes, err := pullResp.MarshalBinary(protocolVersion)
+	bytes, err := pullResp.MarshalBinary()
 	if err != nil {
 		return fmt.Errorf("gateway: json marshall PullRespPacket error: %s", err)
 	}
@@ -263,18 +263,18 @@ func (b *Backend) handlePullData(addr *net.UDPAddr, data []byte) error {
 		return err
 	}
 	ack := PullACKPacket{
-		RandomToken: p.RandomToken,
+		RandomToken:     p.RandomToken,
+		protocolVersion: p.ProtocolVersion,
 	}
-	protocolVersion := b.gateways.gateways[p.GatewayMAC].protoVer
-	bytes, err := ack.MarshalBinary(protocolVersion)
+	bytes, err := ack.MarshalBinary()
 	if err != nil {
 		return err
 	}
 
 	err = b.gateways.set(p.GatewayMAC, gateway{
-		addr:     addr,
-		lastSeen: time.Now().UTC(),
-		protoVer: p.ProtoVer,
+		addr:            addr,
+		lastSeen:        time.Now().UTC(),
+		protocolVersion: p.ProtocolVersion,
 	})
 	if err != nil {
 		return err
@@ -295,10 +295,10 @@ func (b *Backend) handlePushData(addr *net.UDPAddr, data []byte) error {
 
 	// ack the packet
 	ack := PushACKPacket{
-		RandomToken: p.RandomToken,
+		RandomToken:     p.RandomToken,
+		protocolVersion: p.ProtocolVersion,
 	}
-	protocolVersion := b.gateways.gateways[p.GatewayMAC].protoVer
-	bytes, err := ack.MarshalBinary(protocolVersion)
+	bytes, err := ack.MarshalBinary()
 	if err != nil {
 		return err
 	}

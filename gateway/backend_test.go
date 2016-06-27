@@ -30,9 +30,29 @@ func TestBackend(t *testing.T) {
 
 			Convey("When sending a PULL_DATA packet", func() {
 				p := PullDataPacket{
-					RandomToken: 12345,
-					GatewayMAC:  [8]byte{1, 2, 3, 4, 5, 6, 7, 8},
+					RandomToken:     12345,
+					GatewayMAC:      [8]byte{1, 2, 3, 4, 5, 6, 7, 8},
+					ProtocolVersion: ProtocolVersion2,
 				}
+
+				Convey("When the same packet is sent from v1 gateway", func() {
+					p.ProtocolVersion = ProtocolVersion1
+					b, err := p.MarshalBinary()
+					So(err, ShouldBeNil)
+					_, err = gwConn.WriteToUDP(b, backendAddr)
+					So(err, ShouldBeNil)
+
+					Convey("Then an ACK packet is returned", func() {
+						buf := make([]byte, 65507)
+						i, _, err := gwConn.ReadFromUDP(buf)
+						So(err, ShouldBeNil)
+						var ack PullACKPacket
+						So(ack.UnmarshalBinary(buf[:i]), ShouldBeNil)
+						So(ack.RandomToken, ShouldEqual, p.RandomToken)
+						So(ack.protocolVersion, ShouldEqual, p.ProtocolVersion)
+					})
+				})
+
 				b, err := p.MarshalBinary()
 				So(err, ShouldBeNil)
 				_, err = gwConn.WriteToUDP(b, backendAddr)
@@ -50,8 +70,9 @@ func TestBackend(t *testing.T) {
 
 			Convey("When sending a PUSH_DATA packet with stats", func() {
 				p := PushDataPacket{
-					RandomToken: 1234,
-					GatewayMAC:  [8]byte{1, 2, 3, 4, 5, 6, 7, 8},
+					RandomToken:     1234,
+					GatewayMAC:      [8]byte{1, 2, 3, 4, 5, 6, 7, 8},
+					ProtocolVersion: ProtocolVersion2,
 					Payload: PushDataPayload{
 						Stat: &Stat{
 							Time: ExpandedTime(time.Time{}.UTC()),
@@ -88,8 +109,9 @@ func TestBackend(t *testing.T) {
 
 			Convey("When sending a PUSH_DATA packet with RXPK", func() {
 				p := PushDataPacket{
-					RandomToken: 1234,
-					GatewayMAC:  [8]byte{1, 2, 3, 4, 5, 6, 7, 8},
+					RandomToken:     1234,
+					GatewayMAC:      [8]byte{1, 2, 3, 4, 5, 6, 7, 8},
+					ProtocolVersion: ProtocolVersion2,
 					Payload: PushDataPayload{
 						RXPK: []RXPK{
 							{
@@ -110,6 +132,24 @@ func TestBackend(t *testing.T) {
 						},
 					},
 				}
+				Convey("When the same packet is sent from v1 gateway", func() {
+					p.ProtocolVersion = ProtocolVersion1
+					b, err := p.MarshalBinary()
+					So(err, ShouldBeNil)
+					_, err = gwConn.WriteToUDP(b, backendAddr)
+					So(err, ShouldBeNil)
+
+					Convey("Then an ACK packet is returned", func() {
+						buf := make([]byte, 65507)
+						i, _, err := gwConn.ReadFromUDP(buf)
+						So(err, ShouldBeNil)
+						var ack PushACKPacket
+						So(ack.UnmarshalBinary(buf[:i]), ShouldBeNil)
+						So(ack.RandomToken, ShouldEqual, p.RandomToken)
+						So(ack.protocolVersion, ShouldEqual, p.ProtocolVersion)
+					})
+				})
+
 				b, err := p.MarshalBinary()
 				So(err, ShouldBeNil)
 				_, err = gwConn.WriteToUDP(b, backendAddr)
@@ -172,8 +212,9 @@ func TestBackend(t *testing.T) {
 				Convey("When sending the TXPacket when the gateway is known to the backend", func() {
 					// sending a ping should register the gateway to the backend
 					p := PullDataPacket{
-						RandomToken: 12345,
-						GatewayMAC:  [8]byte{1, 2, 3, 4, 5, 6, 7, 8},
+						RandomToken:     12345,
+						GatewayMAC:      [8]byte{1, 2, 3, 4, 5, 6, 7, 8},
+						ProtocolVersion: ProtocolVersion2,
 					}
 					b, err := p.MarshalBinary()
 					So(err, ShouldBeNil)
@@ -203,6 +244,7 @@ func TestBackend(t *testing.T) {
 						So(err, ShouldBeNil)
 
 						So(pullResp, ShouldResemble, PullRespPacket{
+							protocolVersion: ProtocolVersion2,
 							Payload: PullRespPayload{
 								TXPK: TXPK{
 									Imme: true,
